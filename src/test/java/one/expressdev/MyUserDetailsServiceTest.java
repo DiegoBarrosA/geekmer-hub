@@ -19,11 +19,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
-/**
- * Unit tests for the MyUserDetailsService class.
- * Uses ReflectionTestUtils to inject test values for default credentials,
- * bypassing the Dotenv/System.getenv initialization within the test context.
- */
 @ExtendWith(MockitoExtension.class)  
 class MyUserDetailsServiceTest {
 

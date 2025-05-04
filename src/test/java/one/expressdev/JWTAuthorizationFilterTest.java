@@ -14,25 +14,25 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority; // Import GrantedAuthority
+import org.springframework.security.core.GrantedAuthority; 
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import javax.crypto.SecretKey;
 import java.io.IOException;
 import java.util.Arrays;
-// import java.util.Collections; // No longer needed for this version
+
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static one.expressdev.geekmer_hub.Constants.*; // Import constants
+import static one.expressdev.geekmer_hub.Constants.*; 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class) // Use Mockito extension for JUnit 5
+@ExtendWith(MockitoExtension.class) 
 class JWTAuthorizationFilterTest {
 
     @Mock
@@ -44,7 +44,7 @@ class JWTAuthorizationFilterTest {
     @Mock
     private FilterChain filterChain;
 
-    @InjectMocks // Creates an instance of the filter and injects mocks
+    @InjectMocks 
     private JWTAuthorizationFilter jwtAuthorizationFilter;
 
     private final String testUser = "testUser";
@@ -53,23 +53,23 @@ class JWTAuthorizationFilterTest {
 
     @BeforeEach
     void setUp() {
-        testSigningKey = (SecretKey) getSigningKey(SUPER_SECRET_KEY); // Use the same key generation
-        // Ensure context is clear before each test
+        testSigningKey = (SecretKey) getSigningKey(SUPER_SECRET_KEY); 
+        
         SecurityContextHolder.clearContext();
     }
 
     @AfterEach
     void tearDown() {
-        // Ensure context is clear after each test
+        
         SecurityContextHolder.clearContext();
     }
 
-    // Helper to generate a valid JWT for tests
+    
     private String generateValidToken(String username, List<String> authorities, long expirationMillis) {
         long nowMillis = System.currentTimeMillis();
         Date now = new Date(nowMillis);
         Date exp = new Date(nowMillis + expirationMillis);
-        SignatureAlgorithm algorithm = SignatureAlgorithm.HS512; // Assuming HS512
+        SignatureAlgorithm algorithm = SignatureAlgorithm.HS512; 
 
         return Jwts.builder()
                 .setSubject(username)
@@ -80,16 +80,16 @@ class JWTAuthorizationFilterTest {
                 .compact();
     }
 
-     // Helper to generate a token without authorities claim
+     
     private String generateTokenWithoutAuthorities(String username, long expirationMillis) {
         long nowMillis = System.currentTimeMillis();
         Date now = new Date(nowMillis);
         Date exp = new Date(nowMillis + expirationMillis);
-        SignatureAlgorithm algorithm = SignatureAlgorithm.HS512; // Assuming HS512
+        SignatureAlgorithm algorithm = SignatureAlgorithm.HS512; 
 
         return Jwts.builder()
                 .setSubject(username)
-                // No authorities claim
+                
                 .setIssuedAt(now)
                 .setExpiration(exp)
                 .signWith(testSigningKey, algorithm)
@@ -98,44 +98,44 @@ class JWTAuthorizationFilterTest {
 
     @Test
     void doFilterInternal_ValidToken_ShouldSetAuthenticationAndProceed() throws ServletException, IOException {
-        // Arrange
-        String validToken = generateValidToken(testUser, testAuthorities, 3600000); // 1 hour validity
+        
+        String validToken = generateValidToken(testUser, testAuthorities, 3600000); 
         when(request.getHeader(HEADER_AUTHORIZACION_KEY)).thenReturn(TOKEN_BEARER_PREFIX + validToken);
 
-        // Act
+        
         jwtAuthorizationFilter.doFilterInternal(request, response, filterChain);
 
-        // Assert
+        
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         assertThat(authentication).isNotNull();
         assertThat(authentication.getName()).isEqualTo(testUser);
         assertThat(authentication.getCredentials()).isNull();
 
-        // vvvvvv This is the corrected assertion using extracting() vvvvvv
+        
         assertThat(authentication.getAuthorities())
-                .extracting(GrantedAuthority::getAuthority) // Extract the string representation
-                .containsExactlyInAnyOrderElementsOf(testAuthorities); // Compare with the original List<String>
-        // ^^^^^^ This is the corrected assertion using extracting() ^^^^^^
+                .extracting(GrantedAuthority::getAuthority) 
+                .containsExactlyInAnyOrderElementsOf(testAuthorities); 
+        
 
 
-        // Verify filter chain was called
+        
         verify(filterChain, times(1)).doFilter(request, response);
-        // Verify no error response was sent
+        
         verify(response, never()).setStatus(anyInt());
         verify(response, never()).sendError(anyInt(), anyString());
     }
 
     @Test
     void doFilterInternal_NoAuthorizationHeader_ShouldClearContextAndProceed() throws ServletException, IOException {
-        // Arrange
+        
         when(request.getHeader(HEADER_AUTHORIZACION_KEY)).thenReturn(null);
 
-        // Act
+        
         jwtAuthorizationFilter.doFilterInternal(request, response, filterChain);
 
-        // Assert
+        
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        assertThat(authentication).isNull(); // Context should be cleared
+        assertThat(authentication).isNull(); 
 
         verify(filterChain, times(1)).doFilter(request, response);
         verify(response, never()).setStatus(anyInt());
@@ -144,16 +144,16 @@ class JWTAuthorizationFilterTest {
 
     @Test
     void doFilterInternal_InvalidPrefix_ShouldClearContextAndProceed() throws ServletException, IOException {
-        // Arrange
+        
         String validToken = generateValidToken(testUser, testAuthorities, 3600000);
-        when(request.getHeader(HEADER_AUTHORIZACION_KEY)).thenReturn("InvalidPrefix " + validToken); // Wrong prefix
+        when(request.getHeader(HEADER_AUTHORIZACION_KEY)).thenReturn("InvalidPrefix " + validToken); 
 
-        // Act
+        
         jwtAuthorizationFilter.doFilterInternal(request, response, filterChain);
 
-        // Assert
+        
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        assertThat(authentication).isNull(); // Context should be cleared
+        assertThat(authentication).isNull(); 
 
         verify(filterChain, times(1)).doFilter(request, response);
         verify(response, never()).setStatus(anyInt());
@@ -162,32 +162,32 @@ class JWTAuthorizationFilterTest {
 
     @Test
     void doFilterInternal_ExpiredToken_ShouldReturnForbidden() throws ServletException, IOException {
-        // Arrange
-        String expiredToken = generateValidToken(testUser, testAuthorities, -1000); // Expired 1 second ago
+        
+        String expiredToken = generateValidToken(testUser, testAuthorities, -1000); 
         when(request.getHeader(HEADER_AUTHORIZACION_KEY)).thenReturn(TOKEN_BEARER_PREFIX + expiredToken);
 
-        // Act
+        
         jwtAuthorizationFilter.doFilterInternal(request, response, filterChain);
 
-        // Assert
+        
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        assertThat(authentication).isNull(); // Context should remain clear or be cleared
+        assertThat(authentication).isNull(); 
 
         verify(response, times(1)).setStatus(HttpServletResponse.SC_FORBIDDEN);
-        verify(response, times(1)).sendError(eq(HttpServletResponse.SC_FORBIDDEN), anyString()); // Check status and that error was sent
-        verify(filterChain, never()).doFilter(request, response); // Filter chain should not proceed
+        verify(response, times(1)).sendError(eq(HttpServletResponse.SC_FORBIDDEN), anyString()); 
+        verify(filterChain, never()).doFilter(request, response); 
     }
 
      @Test
     void doFilterInternal_MalformedToken_ShouldReturnForbidden() throws ServletException, IOException {
-        // Arrange
+        
         String malformedToken = "thisIsNotAValidJWTStructure";
         when(request.getHeader(HEADER_AUTHORIZACION_KEY)).thenReturn(TOKEN_BEARER_PREFIX + malformedToken);
 
-        // Act
+        
         jwtAuthorizationFilter.doFilterInternal(request, response, filterChain);
 
-        // Assert
+        
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         assertThat(authentication).isNull();
 
@@ -198,7 +198,7 @@ class JWTAuthorizationFilterTest {
 
     @Test
     void doFilterInternal_InvalidSignatureToken_ShouldReturnForbidden() throws ServletException, IOException {
-        // Arrange
+        
         SecretKey wrongKey = Jwts.SIG.HS512.key().build();
         SignatureAlgorithm algorithm = SignatureAlgorithm.HS512;
 
@@ -207,15 +207,15 @@ class JWTAuthorizationFilterTest {
                 .claim("authorities", testAuthorities)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + 3600000))
-                .signWith(wrongKey, algorithm) // Sign with wrong key
+                .signWith(wrongKey, algorithm) 
                 .compact();
 
         when(request.getHeader(HEADER_AUTHORIZACION_KEY)).thenReturn(TOKEN_BEARER_PREFIX + tokenWithWrongSig);
 
-        // Act
+        
         jwtAuthorizationFilter.doFilterInternal(request, response, filterChain);
 
-        // Assert
+        
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         assertThat(authentication).isNull();
 
@@ -227,16 +227,16 @@ class JWTAuthorizationFilterTest {
 
     @Test
     void doFilterInternal_ValidToken_MissingAuthoritiesClaim_ShouldClearContextAndProceed() throws ServletException, IOException {
-         // Arrange
-        String tokenWithoutAuthorities = generateTokenWithoutAuthorities(testUser, 3600000); // 1 hour validity
+         
+        String tokenWithoutAuthorities = generateTokenWithoutAuthorities(testUser, 3600000); 
         when(request.getHeader(HEADER_AUTHORIZACION_KEY)).thenReturn(TOKEN_BEARER_PREFIX + tokenWithoutAuthorities);
 
-        // Act
+        
         jwtAuthorizationFilter.doFilterInternal(request, response, filterChain);
 
-        // Assert
+        
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        assertThat(authentication).isNull(); // Context should be cleared because authorities are missing
+        assertThat(authentication).isNull(); 
 
         verify(filterChain, times(1)).doFilter(request, response);
         verify(response, never()).setStatus(anyInt());

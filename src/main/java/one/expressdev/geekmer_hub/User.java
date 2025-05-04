@@ -8,7 +8,7 @@ import java.util.Collection;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-@Entity // This tells Hibernate to make a table out of this class
+@Entity 
 public class User implements UserDetails {
 
     @Id
@@ -55,7 +55,7 @@ public class User implements UserDetails {
 
     @Override
     public Collection getAuthorities() {
-        // TODO Auto-generated method stub
+        
         throw new UnsupportedOperationException(
             "Unimplemented method 'getAuthorities'"
         );
@@ -63,7 +63,7 @@ public class User implements UserDetails {
 
     @Override
     public boolean isAccountNonExpired() {
-        // TODO Auto-generated method stub
+        
         throw new UnsupportedOperationException(
             "Unimplemented method 'isAccountNonExpired'"
         );
@@ -71,7 +71,7 @@ public class User implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        // TODO Auto-generated method stub
+        
         throw new UnsupportedOperationException(
             "Unimplemented method 'isAccountNonLocked'"
         );
@@ -79,7 +79,7 @@ public class User implements UserDetails {
 
     @Override
     public boolean isCredentialsNonExpired() {
-        // TODO Auto-generated method stub
+        
         throw new UnsupportedOperationException(
             "Unimplemented method 'isCredentialsNonExpired'"
         );
@@ -87,7 +87,7 @@ public class User implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        // TODO Auto-generated method stub
+        
         throw new UnsupportedOperationException(
             "Unimplemented method 'isEnabled'"
         );

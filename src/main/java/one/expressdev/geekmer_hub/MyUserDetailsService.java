@@ -25,7 +25,7 @@ public class MyUserDetailsService implements UserDetailsService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    // Load environment variables from .env file
+    
     private static final Dotenv dotenv = Dotenv.load();
     private String defaultUsername = System.getenv("DEFAULT_USERNAME");
     private String defaultRole = System.getenv("DEFAULT_ROLE");
@@ -45,7 +45,7 @@ public class MyUserDetailsService implements UserDetailsService {
         throws UsernameNotFoundException {
         User user = userRepository.findByUsername(username);
         if (user == null) {
-            // Create and save the default user
+            
             User defaultUser = new User();
             defaultUser.setUsername(defaultUsername);
             defaultUser.setPassword(passwordEncoder.encode(defaultPassword));

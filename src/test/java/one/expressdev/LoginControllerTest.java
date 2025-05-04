@@ -21,8 +21,8 @@ import java.util.ArrayList;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
-// Remove CSRF import if CSRF disabled in TestSecurityConfig
-// import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf; 
+
+
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -34,9 +34,9 @@ class LoginControllerTest {
         @Bean
         public SecurityFilterChain testFilterChain(HttpSecurity http) throws Exception {
             http
-                .csrf(AbstractHttpConfigurer::disable) // Disable CSRF for test simplicity
+                .csrf(AbstractHttpConfigurer::disable) 
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/login").permitAll() // MUST permit /login
+                        .requestMatchers("/login").permitAll() 
                         .anyRequest().authenticated()
                 );
             return http.build();
@@ -70,7 +70,7 @@ class LoginControllerTest {
         mockMvc.perform(post("/login")
                         .param("user", username)
                         .param("password", password)
-                        // .with(csrf()) // Not needed if CSRF disabled above
+                        
                         )
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -88,7 +88,7 @@ class LoginControllerTest {
         mockMvc.perform(post("/login")
                         .param("user", username)
                         .param("password", password)
-                        // .with(csrf()) // Not needed if CSRF disabled above
+                        
                         )
                 .andExpect(status().isUnauthorized())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -109,7 +109,7 @@ class LoginControllerTest {
         mockMvc.perform(post("/login")
                         .param("user", username)
                         .param("password", password)
-                        // .with(csrf()) // Not needed if CSRF disabled above
+                        
                         )
                 .andExpect(status().isUnauthorized())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -131,7 +131,7 @@ class LoginControllerTest {
         mockMvc.perform(post("/login")
                         .param("user", username)
                         .param("password", password)
-                        // .with(csrf()) // Not needed if CSRF disabled above
+                        
                         )
                 .andExpect(status().isInternalServerError())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -145,7 +145,7 @@ class LoginControllerTest {
         String password = "password123";
         mockMvc.perform(post("/login")
                         .param("password", password)
-                        // .with(csrf()) // Not needed if CSRF disabled above
+                        
                         )
                 .andExpect(status().isBadRequest());
     }
@@ -155,7 +155,7 @@ class LoginControllerTest {
         String username = "testuser";
         mockMvc.perform(post("/login")
                         .param("user", username)
-                        // .with(csrf()) // Not needed if CSRF disabled above
+                        
                         )
                 .andExpect(status().isBadRequest());
     }
