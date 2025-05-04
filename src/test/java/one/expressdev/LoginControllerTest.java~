@@ -1,0 +1,158 @@
+package one.expressdev.geekmer_hub;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.ArrayList;
+
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@WebMvcTest(LoginController.class) // Focus testing on LoginController
+class LoginControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc; // For performing HTTP requests
+
+    @MockBean // Creates Mockito mocks and adds them to the application context
+    private MyUserDetailsService userDetailsService;
+
+    @MockBean
+    private PasswordEncoder passwordEncoder;
+
+    @MockBean
+    private JWTAuthenticationConfig jwtAuthenticationConfig;
+
+    @Test
+    void login_Success() throws Exception {
+        // --- Arrange ---
+        String username = "testuser";
+        String password = "password123";
+        String encodedPassword = "encodedPassword"; // Placeholder
+        String expectedToken = "mock.jwt.token";
+
+        // Mock UserDetails
+        UserDetails mockUserDetails = new User(username, encodedPassword, new ArrayList<>());
+
+        // Configure mocks
+        when(userDetailsService.loadUserByUsername(username)).thenReturn(mockUserDetails);
+        when(passwordEncoder.matches(password, encodedPassword)).thenReturn(true);
+        when(jwtAuthenticationConfig.getJWTToken(username)).thenReturn(expectedToken);
+
+        // --- Act & Assert ---
+        mockMvc.perform(post("/login")
+                        .param("user", username)
+                        .param("password", password))
+                .andExpect(status().isOk()) // Expect HTTP 200 OK
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.username").value(username)) // Check username in response
+                .andExpect(jsonPath("$.token").value(expectedToken)); // Check token in response
+    }
+
+    @Test
+    void login_UserNotFound() throws Exception {
+        // --- Arrange ---
+        String username = "unknownuser";
+        String password = "password123";
+
+        // Configure mock to throw UsernameNotFoundException
+        when(userDetailsService.loadUserByUsername(username))
+                .thenThrow(new UsernameNotFoundException("User not found"));
+
+        // --- Act & Assert ---
+        mockMvc.perform(post("/login")
+                        .param("user", username)
+                        .param("password", password))
+                .andExpect(status().isUnauthorized()) // Expect HTTP 401 Unauthorized
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.error").value("Authentication failed"))
+                .andExpect(jsonPath("$.message").value("Invalid username or password")); // Message from catch block re-throwing BadCredentialsException
+    }
+
+    @Test
+    void login_InvalidPassword() throws Exception {
+        // --- Arrange ---
+        String username = "testuser";
+        String password = "wrongpassword";
+        String encodedPassword = "encodedPassword"; // Placeholder
+
+        // Mock UserDetails
+        UserDetails mockUserDetails = new User(username, encodedPassword, new ArrayList<>());
+
+        // Configure mocks
+        when(userDetailsService.loadUserByUsername(username)).thenReturn(mockUserDetails);
+        // Configure password encoder to return false
+        when(passwordEncoder.matches(password, encodedPassword)).thenReturn(false);
+
+        // --- Act & Assert ---
+        mockMvc.perform(post("/login")
+                        .param("user", username)
+                        .param("password", password))
+                .andExpect(status().isUnauthorized()) // Expect HTTP 401 Unauthorized
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.error").value("Authentication failed"))
+                .andExpect(jsonPath("$.message").value("Invalid password")); // Direct message from BadCredentialsException
+    }
+
+    @Test
+    void login_JwtGenerationError() throws Exception {
+        // --- Arrange ---
+        String username = "testuser";
+        String password = "password123";
+        String encodedPassword = "encodedPassword"; // Placeholder
+
+        // Mock UserDetails
+        UserDetails mockUserDetails = new User(username, encodedPassword, new ArrayList<>());
+
+        // Configure mocks for successful user load and password match
+        when(userDetailsService.loadUserByUsername(username)).thenReturn(mockUserDetails);
+        when(passwordEncoder.matches(password, encodedPassword)).thenReturn(true);
+        // Configure JWT generation to throw an unexpected error
+        when(jwtAuthenticationConfig.getJWTToken(username)).thenThrow(new RuntimeException("JWT Service Unavailable"));
+
+        // --- Act & Assert ---
+        mockMvc.perform(post("/login")
+                        .param("user", username)
+                        .param("password", password))
+                .andExpect(status().isInternalServerError()) // Expect HTTP 500 Internal Server Error
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.error").value("Server error"))
+                .andExpect(jsonPath("$.message").value("An unexpected error occurred")); // Message from the generic exception handler
+    }
+
+    @Test
+    void login_MissingUserParameter() throws Exception {
+        // --- Arrange ---
+        String password = "password123";
+
+        // --- Act & Assert ---
+        // Spring Boot typically handles missing required parameters with a 400 Bad Request
+        // before it even reaches the controller method or our custom exception handlers
+        // unless specific configuration is in place. We test for the expected default behavior.
+        mockMvc.perform(post("/login")
+                        .param("password", password)) // Missing "user" parameter
+                .andExpect(status().isBadRequest()); // Expect HTTP 400 Bad Request
+    }
+
+     @Test
+    void login_MissingPasswordParameter() throws Exception {
+        // --- Arrange ---
+        String username = "testuser";
+
+        // --- Act & Assert ---
+        mockMvc.perform(post("/login")
+                        .param("user", username)) // Missing "password" parameter
+                .andExpect(status().isBadRequest()); // Expect HTTP 400 Bad Request
+    }
+}
