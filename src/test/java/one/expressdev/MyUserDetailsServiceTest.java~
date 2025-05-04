@@ -1,0 +1,151 @@
+package one.expressdev.geekmer_hub;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils; // Import ReflectionTestUtils
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
+
+/**
+ * Unit tests for the MyUserDetailsService class.
+ * Uses ReflectionTestUtils to inject test values for default credentials,
+ * bypassing the Dotenv/System.getenv initialization within the test context.
+ */
+@ExtendWith(MockitoExtension.class) // Integrate Mockito with JUnit 5
+class MyUserDetailsServiceTest {
+
+    // Mock the dependencies needed by MyUserDetailsService
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
+    // Create an instance of the class under test and inject the mocks
+    @InjectMocks
+    private MyUserDetailsService myUserDetailsService;
+
+    // Define constants for test default values to be injected via reflection
+    private final String TEST_DEFAULT_USERNAME = "testDefaultUserFromTest";
+    private final String TEST_DEFAULT_PASSWORD = "testDefaultPasswordFromTest";
+    private final String ENCODED_DEFAULT_PASSWORD = "encodedTestDefaultPassword"; // Mock encoded password result
+
+    @BeforeEach
+    void setUp() {
+        // Use Spring's ReflectionTestUtils to set the private fields AFTER
+        // the object has been instantiated by @InjectMocks. This effectively
+        // overrides the values loaded via System.getenv/Dotenv during the
+        // original initialization, allowing controlled testing.
+        ReflectionTestUtils.setField(myUserDetailsService, "defaultUsername", TEST_DEFAULT_USERNAME);
+        ReflectionTestUtils.setField(myUserDetailsService, "defaultPassword", TEST_DEFAULT_PASSWORD);
+        // Note: We don't need to set 'defaultRole' as it's not used in the loadUserByUsername logic.
+    }
+
+    @Test
+    @DisplayName("loadUserByUsername: Should return existing user when found in repository")
+    void loadUserByUsername_UserExists_ReturnsUser() {
+        // Arrange
+        String existingUsername = "existingTestUser";
+        // Create a mock User object (assuming User implements UserDetails)
+        User mockUser = new User();
+        mockUser.setUsername(existingUsername);
+        mockUser.setPassword("someEncodedPassword");
+        // Set other UserDetails properties if necessary (e.g., authorities, enabled status)
+
+        // Configure the mock repository to return the mock user when findByUsername is called
+        when(userRepository.findByUsername(existingUsername)).thenReturn(mockUser);
+
+        // Act
+        // Call the method under test
+        UserDetails userDetails = myUserDetailsService.loadUserByUsername(existingUsername);
+
+        // Assert
+        // Verify that the returned UserDetails object is not null and matches the mock user
+        assertThat(userDetails).isNotNull();
+        assertThat(userDetails.getUsername()).isEqualTo(existingUsername);
+        assertThat(userDetails.getPassword()).isEqualTo("someEncodedPassword");
+        assertThat(userDetails).isSameAs(mockUser); // Ensure the exact object from the repo is returned
+
+        // Verify interactions with mocks
+        // Ensure findByUsername was called once with the correct username
+        verify(userRepository, times(1)).findByUsername(existingUsername);
+        // Ensure password encoder was NOT called (user already exists)
+        verify(passwordEncoder, never()).encode(anyString());
+        // Ensure save was NOT called (user already exists)
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("loadUserByUsername: Should create, save, and return default user when username not found")
+    void loadUserByUsername_UserNotFound_CreatesSavesReturnsDefaultUser() {
+        // Arrange
+        String nonExistentUsername = "newUserNotInRepo";
+
+        // Configure the mock repository to return null (user not found)
+        when(userRepository.findByUsername(nonExistentUsername)).thenReturn(null);
+        // Configure the mock password encoder to return a specific encoded password
+        when(passwordEncoder.encode(TEST_DEFAULT_PASSWORD)).thenReturn(ENCODED_DEFAULT_PASSWORD);
+        // We'll capture the user passed to save() later
+
+        // Act
+        // Call the method under test
+        UserDetails userDetails = myUserDetailsService.loadUserByUsername(nonExistentUsername);
+
+        // Assert
+        // Verify the returned UserDetails matches the expected default user details
+        assertThat(userDetails).isNotNull();
+        assertThat(userDetails.getUsername()).isEqualTo(TEST_DEFAULT_USERNAME); // Should be the default username set via reflection
+        assertThat(userDetails.getPassword()).isEqualTo(ENCODED_DEFAULT_PASSWORD); // Should be the mock encoded password
+        // Add assertions for default roles/authorities if your User class sets them for the default user
+
+        // Verify interactions with mocks
+        // Ensure findByUsername was called once
+        verify(userRepository, times(1)).findByUsername(nonExistentUsername);
+        // Ensure password encoder was called once with the correct default password
+        verify(passwordEncoder, times(1)).encode(TEST_DEFAULT_PASSWORD);
+
+        // Capture the User object passed to the save method
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        // Verify save was called once and capture the argument
+        verify(userRepository, times(1)).save(userCaptor.capture());
+
+        // Assert properties of the saved User object
+        User savedUser = userCaptor.getValue();
+        assertThat(savedUser).isNotNull();
+        assertThat(savedUser.getUsername()).isEqualTo(TEST_DEFAULT_USERNAME);
+        assertThat(savedUser.getPassword()).isEqualTo(ENCODED_DEFAULT_PASSWORD);
+        // Add assertions for other properties if the default user creation logic sets them (e.g., roles)
+    }
+
+    @Test
+    @DisplayName("loadUserByUsername: Should NOT throw UsernameNotFoundException when user is not found")
+    void loadUserByUsername_UserNotFound_DoesNotThrowUsernameNotFoundException() {
+        // Arrange
+        String nonExistentUsername = "anotherNewUser";
+        // Configure the mock repository to return null (user not found)
+        when(userRepository.findByUsername(nonExistentUsername)).thenReturn(null);
+        // Configure the mock password encoder (it will be called during default user creation)
+        when(passwordEncoder.encode(TEST_DEFAULT_PASSWORD)).thenReturn(ENCODED_DEFAULT_PASSWORD);
+
+        // Act & Assert
+        // Use AssertJ's assertThatCode to verify that no exception (specifically UsernameNotFoundException) is thrown
+        assertThatCode(() -> myUserDetailsService.loadUserByUsername(nonExistentUsername))
+                .doesNotThrowAnyException();
+
+        // Optionally, verify that the save operation still occurred as part of default user creation
+        verify(userRepository, times(1)).save(any(User.class));
+    }
+}
