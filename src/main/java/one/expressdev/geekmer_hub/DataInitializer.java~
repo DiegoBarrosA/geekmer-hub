@@ -1,0 +1,148 @@
+package one.expressdev.geekmer_hub;
+
+import io.github.cdimascio.dotenv.Dotenv;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Component;
+
+// Import collections or Role entity if needed for role setting later
+// import java.util.Collections;
+// import java.util.Set; // If using Set<Role> or Set<String>
+// import one.expressdev.geekmer_hub.Role; // Example if Role is an entity
+
+@Component
+public class DataInitializer implements CommandLineRunner {
+
+    // Correct Logger Declaration
+    private static final Logger logger = LoggerFactory.getLogger(DataInitializer.class);
+
+    // Configure Dotenv to be safe if .env is missing
+    private static final Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    // --- Credentials Loading ---
+    // Load the single role to be used for ALL default users
+    // Added defaultValue "USER"
+    private final String commonDefaultRole = getEnvVar("DEFAULT_ROLE", "USER");
+
+    // User 1 credentials
+    // Added defaultValue "admin"
+    private final String username1 = getEnvVar("DEFAULT_USERNAME", "admin");
+    // Added defaultValue "password"
+    private final String password_1 = getEnvVar("DEFAULT_PASSWORD", "password"); // Default only for dev!
+
+    // User 2 credentials
+    // Added defaultValue "user1"
+    private final String username2 = getEnvVar("DEFAULT_USERNAME_2", "user1");
+    // Added defaultValue "password"
+    private final String password_2 = getEnvVar("DEFAULT_PASSWORD_2", "password"); // Default only for dev!
+
+    // User 3 credentials
+    // Added defaultValue "user2"
+    private final String username3 = getEnvVar("DEFAULT_USERNAME_3", "user2");
+    // Added defaultValue "password"
+    private final String password_3 = getEnvVar("DEFAULT_PASSWORD_3", "password"); // Default only for dev!
+    // --- End Credentials Loading ---
+
+
+    @Override
+    public void run(String... args) throws Exception {
+        logger.info("Checking and creating default users if necessary...");
+        logger.info("Assigning common role '{}' to all default users.", commonDefaultRole);
+
+        // Create each user, passing the SAME commonDefaultRole
+        createDefaultUserIfNotExists(username1, password_1, commonDefaultRole);
+        createDefaultUserIfNotExists(username2, password_2, commonDefaultRole);
+        createDefaultUserIfNotExists(username3, password_3, commonDefaultRole);
+
+        logger.info("Default user initialization finished.");
+    }
+
+    /**
+     * Checks if a user exists and creates them if they don't, assigning the specified role.
+     *
+     * @param username The username for the default user.
+     * @param rawPassword The raw (unencoded) password.
+     * @param roleToAssign The single role string to assign to the user.
+     */
+    private void createDefaultUserIfNotExists(String username, String rawPassword, String roleToAssign) {
+         if (username == null || username.trim().isEmpty() || rawPassword == null || rawPassword.isEmpty()) {
+             // This warning should NOT trigger if getEnvVar is called correctly with defaults
+             logger.warn("Skipping creation of default user due to missing username or password. Check configuration and defaults.");
+             return;
+        }
+         if (roleToAssign == null || roleToAssign.trim().isEmpty()) {
+             // This warning should NOT trigger if getEnvVar for DEFAULT_ROLE is correct
+              logger.warn("Skipping creation of default user '{}' due to missing role configuration.", username);
+              return;
+         }
+
+        if (userRepository.findByUsername(username) == null) {
+            User defaultUser = new User();
+            defaultUser.setUsername(username);
+            defaultUser.setPassword(passwordEncoder.encode(rawPassword));
+
+            // --- IMPORTANT: Implement Role Setting Logic Below ---
+            // Adapt this section based on your User entity. Use the 'roleToAssign' variable.
+            // Choose ONE example or adapt:
+
+            // Example 1: If User has a single String field named 'role'
+            // defaultUser.setRole(roleToAssign);
+            // logger.debug("Set role '{}' for user '{}'", roleToAssign, username); // Add debug log
+
+            // Example 2: If User has a Set<String> field named 'roles'
+            // defaultUser.setRoles(java.util.Collections.singleton(roleToAssign));
+            // logger.debug("Set roles '{}' for user '{}'", defaultUser.getRoles(), username); // Add debug log
+
+            // Example 3: If User has a Set<Role> field where Role is another entity
+            // Assuming RoleRepository is injected via @Autowired RoleRepository roleRepository;
+            // Role userRole = roleRepository.findByName(roleToAssign);
+            // if (userRole == null) {
+            //     logger.error("Role '{}' not found in database. Cannot assign to user '{}'. Ensure roles are pre-populated or handled.", roleToAssign, username);
+            //     // Decide how to handle: skip user, create role, assign default role?
+            //     return; // Example: Skip user creation if role doesn't exist
+            // }
+            // defaultUser.setRoles(java.util.Collections.singleton(userRole));
+            // logger.debug("Set roles '{}' for user '{}'", defaultUser.getRoles(), username); // Add debug log
+
+            // Remove this warning once you have implemented the role setting logic above
+            logger.warn("Role setting logic for user '{}' needs to be implemented/verified in DataInitializer using role '{}' based on User entity structure.", username, roleToAssign);
+
+
+            userRepository.save(defaultUser);
+            logger.info("Created default user: '{}' with assigned role configuration: '{}'", username, roleToAssign); // Log assigned role config
+        } else {
+            logger.info("Default user '{}' already exists. Skipping creation.", username);
+        }
+    }
+
+    /**
+     * Helper to get environment variables, falling back to .env file, then to a default value.
+     * Also logs the loaded value (masking passwords).
+     */
+    private static String getEnvVar(String key, String defaultValue) {
+        String value = System.getenv(key); // Check system env first
+        if (value == null || value.trim().isEmpty()) {
+            value = dotenv.get(key); // Check .env file next
+        }
+
+        if (value == null || value.trim().isEmpty()) {
+            // Use the provided default value
+            logger.warn("Environment variable or .env entry for '{}' not found. Using default value: '{}'", key, defaultValue);
+            return defaultValue;
+        } else {
+            // Value found in environment or .env
+            String loggedValue = key.toLowerCase().contains("password") ? "****" : value; // Mask passwords
+            logger.info("Loaded credential from environment/dotenv: {} = {}", key, loggedValue);
+            return value;
+        }
+    }
+}
